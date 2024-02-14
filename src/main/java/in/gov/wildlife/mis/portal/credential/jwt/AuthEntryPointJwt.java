@@ -19,22 +19,17 @@ public class AuthEntryPointJwt implements AuthenticationEntryPoint {
 
   @Override
   public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
-    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Access Denied!!!");
-//    response.setContentType("application/json");
 //    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-//
-//    String errorMessage = "Access Denied !! " + authException.getMessage();
-//    String jsonBody = "{\"error\": \"" + errorMessage + "\"}";
-//
-//    response.getWriter().write(jsonBody);
+//    PrintWriter writer = response.getWriter();
+//    writer.println("Access Denied !! " + authException.getMessage());
 
+    response.setContentType("application/json");
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+//    response.addCookie(new Cookie("Cookie","1353546"));
+    String errorMessage = "Access Denied !! " + authException.getMessage();
+    String jsonBody = "{\"error\": \"" + errorMessage + "\"}";
 
-  }
-
-
-
-}
-
+    response.getWriter().write(jsonBody);
 //    String errorMessage = null;
 //    Integer errorCode = null;
 //    int errorStatus = getErrorCode(request);
@@ -69,3 +64,12 @@ public class AuthEntryPointJwt implements AuthenticationEntryPoint {
 //    response.setStatus(errorCode);
 //    String jsonBody = "{\"error\": \"" + errorMessage + "\"}";
 //    response.getWriter().write(jsonBody);
+
+  }
+
+//  private int getErrorCode(HttpServletRequest httpRequest) {
+//    return (Integer) httpRequest.getAttribute("javax.servlet.error.status_code");
+//  }
+
+}
+

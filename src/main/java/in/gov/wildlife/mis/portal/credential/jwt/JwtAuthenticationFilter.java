@@ -1,11 +1,9 @@
 package in.gov.wildlife.mis.portal.credential.jwt;
 
-import com.forest.wildlife.auditTrail.AuditTrail;
-import com.forest.wildlife.auditTrail.AuditTrailRepository;
-import com.forest.wildlife.auditTrail.RequestBodyCachingWrapper;
-import com.forest.wildlife.credential.service.UserDetailsServiceImpl;
-import com.forest.wildlife.exceptionHandling.exception.commonException.JwtExpiredException;
-import com.forest.wildlife.exceptionHandling.exception.securityException.CustomMalformedJwtException;
+import in.gov.wildlife.mis.portal.appUser.AppUserServiceImpl;
+import in.gov.wildlife.mis.portal.exception.AccessDeniedException;
+import in.gov.wildlife.mis.portal.exception.Error;
+import in.gov.wildlife.mis.portal.exception.JwtCustomException;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Bucket4j;
@@ -17,7 +15,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,9 +26,9 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import javax.validation.constraints.NotNull;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.LocalDateTime;
 
 
 @Component
@@ -39,14 +36,14 @@ import java.time.LocalDateTime;
 @WebFilter("/*")
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private Logger logger = LoggerFactory.getLogger(OncePerRequestFilter.class);
+    private final Logger logger = LoggerFactory.getLogger(OncePerRequestFilter.class);
     @Autowired
     private JwtHelper jwtHelper;
     @Autowired
-    private UserDetailsServiceImpl userDetailsService;
+    private AppUserServiceImpl userDetailsService;
 
-    @Autowired
-    private AuditTrailRepository auditTrailRepository;
+//    @Autowired
+//    private AuditTrailRepository auditTrailRepository;
 
     private final Bucket bucket;
 
@@ -72,25 +69,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     username = this.jwtHelper.getUsernameFromToken(token);
 
                 } catch (IllegalArgumentException e) {
-                    logger.info("Illegal Argument while fetching the username !!");
-                    e.printStackTrace();
-                    throw new IllegalArgumentException("Illegal Argument while fetching the username !!");
+                    logger.info("Illegal Argument while fetching the username !!"+e.getMessage());
+                    Error error = new Error(e.getMessage());
+                    throw new JwtCustomException("Illegal Argument while fetching the username !!", error);
                 } catch (ExpiredJwtException e) {
                     logger.info("Given jwt token is expired !!");
-                    e.printStackTrace();
-                    throw new JwtExpiredException(token,"Given jwt token is expired !!");
+//                    e.printStackTrace();
+                    Error error = new Error("JWT token has expired");
+                    throw new JwtCustomException("JWT token has expired", error);
                 } catch (MalformedJwtException e) {
                     logger.info("Some changed has done in token !! Invalid Token");
-                    e.printStackTrace();
-                    throw new CustomMalformedJwtException("JWT token is malformed");
+//                    e.printStackTrace();
+                    Error error = new Error(e.getMessage());
+                    throw new JwtCustomException("Some changed has done in token !! Invalid Token",error);
 
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    throw new RuntimeException(e);
+//                    e.printStackTrace();
+                    throw new RuntimeException(e.getMessage());
                 }
 
             } else {
                 logger.info("Invalid Header Value !! ");
+                Error error=new Error("Invalid Header Value !! ");
+                throw new JwtCustomException("Invalid JWT token", error);
             }
 
             //
@@ -112,27 +113,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     logger.info("Validation fails !!");
                 }
 
+            }else {
+                throw  new AccessDeniedException("error-message.access-denied");
             }
 
-            try {
-                RequestBodyCachingWrapper requestWrapper = new RequestBodyCachingWrapper(request);
-                String requestBody = requestWrapper.getRequestBody();
-                filterChain.doFilter(requestWrapper, response);
-                AuditTrail auditTrail=AuditTrail.builder()
-                        .url(request.getRequestURI())
-                        .userName(request.getRemoteUser())
-                        .payload(requestBody.isEmpty() ?"[]":requestBody)
-                        .ipAddress(request.getRemoteAddr())
-                        .userAgent(request.getHeader("User-Agent"))
-                        .requestOn(LocalDateTime.now())
-                        .httpMethod(request.getMethod())
-                        .statusCode(response.getStatus())
-                        .build();
-                auditTrailRepository.save(auditTrail);
-            } catch (Exception e) {
-                logger.error("An error occurred while processing the filter chain: {}", e.getMessage());
-                e.printStackTrace();
-            }
+//            try {
+//                RequestBodyCachingWrapper requestWrapper = new RequestBodyCachingWrapper(request);
+//                String requestBody = requestWrapper.getRequestBody();
+//                filterChain.doFilter(requestWrapper, response);
+//                AuditTrail auditTrail=AuditTrail.builder()
+//                        .url(request.getRequestURI())
+//                        .userName(request.getRemoteUser())
+//                        .payload(requestBody.isEmpty() ?"[]":requestBody)
+//                        .ipAddress(request.getRemoteAddr())
+//                        .userAgent(request.getHeader("User-Agent"))
+//                        .requestOn(LocalDateTime.now())
+//                        .httpMethod(request.getMethod())
+//                        .statusCode(response.getStatus())
+//                        .build();
+//                auditTrailRepository.save(auditTrail);
+//            } catch (Exception e) {
+//                logger.error("An error occurred while processing the filter chain: {}", e.getMessage());
+//                e.printStackTrace();
+//            }
         } else {
             response.getWriter().write("Too many requests. Please try again later.");
             response.setStatus(429);// HTTP 429 Too Many Requests
